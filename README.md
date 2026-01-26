@@ -241,10 +241,10 @@ The proxy configuration is logged at startup when detected.
 
 MIT License - See [LICENSE](LICENSE) file for details.
 
-Copyright (c) 2025 Adeptus Cyber Solutions, LLC
+Copyright (c) 2026 Adeptus Cyber Solutions, LLC
 
 ## Credits
 
-- Developed by [Adeptus Cyber Solutions, LLC](https://adeptuscyber.com)
+- Developed by [Adeptus Cyber Solutions, LLC](https://www.adeptuscybersolutions.com)
 - ADS-B data provided by [airplanes.live](https://airplanes.live)
 - Built using the TAK Server Plugin SDK
