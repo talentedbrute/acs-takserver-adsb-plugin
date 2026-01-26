@@ -6,9 +6,9 @@ plugins {
 group = 'tak.server.plugins'
 version = '1.0.1'
 
-// Java 11 for compatibility with TAK Server runtime
-sourceCompatibility = '11'
-targetCompatibility = '11'
+// Java 17 for compatibility with TAK Server runtime
+sourceCompatibility = '17'
+targetCompatibility = '17'
 
 // Version info from git (with fallbacks if not in a git repo)
 ext {

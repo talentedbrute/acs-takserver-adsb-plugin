@@ -22,7 +22,7 @@ Developed by [Adeptus Cyber Solutions, LLC](https://adeptuscyber.com)
 ## Requirements
 
 - TAK Server 5.x
-- Java 11+ (builds with Java 11 for TAK Server compatibility)
+- Java 17+ (builds with Java 17 for TAK Server compatibility)
 - TAK Server Plugin SDK JAR (from tak.gov or your TAK Server installation)
 
 ## Building
