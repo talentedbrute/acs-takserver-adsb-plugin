@@ -1,0 +1,128 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+group = 'tak.server.plugins'
+version = '1.0.0'
+
+// Java 11 for compatibility with TAK Server runtime
+sourceCompatibility = '11'
+targetCompatibility = '11'
+
+// Version info from git (with fallbacks if not in a git repo)
+ext {
+    def versionParts = version.toString().tokenize('.')
+    verMajor = versionParts.size() > 0 ? versionParts[0] : '1'
+    verMinor = versionParts.size() > 1 ? versionParts[1] : '0'
+    verPatch = versionParts.size() > 2 ? versionParts[2] : '0'
+
+    // Try to get git info, fallback to defaults if not available
+    try {
+        commitHash = 'git rev-parse --short HEAD'.execute().text.trim()
+        gitbranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
+    } catch (Exception e) {
+        commitHash = 'unknown'
+        gitbranch = 'unknown'
+    }
+
+    if (!commitHash || commitHash.isEmpty()) {
+        commitHash = 'unknown'
+    }
+    if (!gitbranch || gitbranch.isEmpty()) {
+        gitbranch = 'unknown'
+    }
+}
+
+
+// TAK Server version selection
+// Usage: ./gradlew build -PtakVersion=5.4
+//        ./gradlew build -PtakVersion=5.3
+def takVersion = project.hasProperty('takVersion') ? project.property('takVersion') : null
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    // TAK Server Plugin SDK - compileOnly since TAK Server provides it at runtime
+    def takJars = fileTree(dir: 'libs', include: ['takserver-plugins-*.jar'])
+
+    if (takVersion) {
+        // Filter to matching version
+        def matchingJars = takJars.filter { it.name.contains(takVersion) }
+        if (matchingJars.isEmpty()) {
+            throw new GradleException("No TAK Server plugin JAR found matching version '${takVersion}' in libs/\n" +
+                "Available JARs: ${takJars.files.collect { it.name }.join(', ')}")
+        }
+        if (matchingJars.files.size() > 1) {
+            throw new GradleException("Multiple JARs match version '${takVersion}': ${matchingJars.files.collect { it.name }.join(', ')}\n" +
+                "Please be more specific with -PtakVersion=X.X")
+        }
+        compileOnly matchingJars
+        println "Using TAK Server SDK: ${matchingJars.files.first().name}"
+    } else if (takJars.files.size() == 1) {
+        // Only one JAR, use it
+        compileOnly takJars
+        println "Using TAK Server SDK: ${takJars.files.first().name}"
+    } else if (takJars.files.size() > 1) {
+        throw new GradleException("Multiple TAK Server plugin JARs found in libs/:\n" +
+            "${takJars.files.collect { '  - ' + it.name }.join('\n')}\n\n" +
+            "Specify which version to use with: ./gradlew build -PtakVersion=5.4")
+    } else {
+        throw new GradleException("No TAK Server plugin JAR found in libs/\n" +
+            "Copy from your TAK Server: cp /opt/tak/lib/takserver-plugins-*-all.jar libs/")
+    }
+    implementation group: 'org.apache.httpcomponents.client5', name: 'httpclient5', version: '5.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'ch.qos.logback:logback-classic:1.2.9'
+}
+
+task writeVerFile {
+    def outputDir = "$buildDir/resources/main"
+    outputs.file("$outputDir/ver.json")
+    doLast {
+        mkdir outputDir
+
+        new File("$outputDir/ver.json").text = """{
+  "major" : $verMajor,
+  "minor" : $verMinor,
+  "patch" : $verPatch,
+  "hash" : "$commitHash",
+  "branch" : "$gitbranch"
+}
+"""
+    }
+}
+
+// Ensure ver.json is created before JAR is built
+classes.dependsOn writeVerFile
+
+shadowJar {
+    archiveClassifier.set('all')
+    mergeServiceFiles()
+}
+
+jar {
+    manifest {
+        attributes(
+            'Implementation-Title': 'TAK Server ADS-B Plugin',
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'Adeptus Cyber Solutions, LLC'
+        )
+    }
+}
+
+test {
+    useJUnit()
+}
+
+clean {
+    delete 'bin/'
+}

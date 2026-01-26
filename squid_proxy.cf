@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Squid Proxy in Public Subnet for Private Subnet Internet Access
+
+Parameters:
+  VpcId:
+    Type: String
+    Default: vpc-06082aec013ea690b
+    Description: Existing VPC ID
+
+  VpcCidr:
+    Type: String
+    Default: 172.31.0.0/16
+    Description: VPC CIDR block
+
+  PrivateSubnetCidr:
+    Type: String
+    Default: 172.31.32.0/20
+    Description: Private subnet CIDR for security group rules
+
+  PublicSubnetCidr:
+    Type: String
+    Default: 172.31.55.0/25
+    Description: CIDR for new public subnet
+
+  AvailabilityZone:
+    Type: String
+    Default: us-gov-west-1a
+    Description: Availability Zone
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+
+  InternetGatewayId:
+    Type: String
+    Default: igw-07a09d7f7bbcbf179
+    Description: Existing Internet Gateway ID
+
+  AmiId:
+    Type: String
+    Default: ami-0d3a419b87fbacdc6
+    Description: Amazon Linux AMI ID
+
+Resources:
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: squid-proxy-public-subnet
+
+  # Route Table for Public Subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: squid-proxy-public-rt
+
+  # Route to Internet Gateway
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGatewayId
+
+  # Associate Route Table with Public Subnet
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Group for Squid Proxy
+  SquidProxySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupName: squid-proxy-sg
+      GroupDescription: Security group for Squid proxy
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3128
+          ToPort: 3128
+          CidrIp: !Ref PrivateSubnetCidr
+          Description: Squid proxy from private subnet
+        - IpProtocol: tcp
+          FromPort: 3128
+          ToPort: 3128
+          CidrIp: !Ref VpcCidr
+          Description: Squid proxy from entire VPC
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref PrivateSubnetCidr
+          Description: HTTPS from private subnet
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS to internet
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP to internet
+      Tags:
+        - Key: Name
+          Value: squid-proxy-sg
+
+  # IAM Role for SSM Session Manager
+  SquidProxyRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      RoleName: squid-proxy-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws-us-gov:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws-us-gov:iam::aws:policy/AmazonS3FullAccess
+      Tags:
+        - Key: Name
+          Value: squid-proxy-role
+
+  # Instance Profile
+  SquidProxyInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DeletionPolicy: Delete
+    Properties:
+      InstanceProfileName: squid-proxy-instance-profile
+      Roles:
+        - !Ref SquidProxyRole
+
+  # Squid Proxy EC2 Instance
+  SquidProxyInstance:
+    Type: AWS::EC2::Instance
+    DeletionPolicy: Delete
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref SquidProxySecurityGroup
+      IamInstanceProfile: !Ref SquidProxyInstanceProfile
+      ImageId: !Ref AmiId
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          
+          # Update system
+          yum update -y
+          
+          # Install Squid
+          yum install squid -y
+          
+          # Backup original config
+          cp /etc/squid/squid.conf /etc/squid/squid.conf.bak
+          
+          # Create Squid configuration
+          cat > /etc/squid/squid.conf << 'EOF'
+          # Squid Proxy Configuration
+          
+          # Define local networks
+          acl localnet src 172.31.0.0/16
+          
+          # Define allowed destination domains
+          acl allowed_sites dstdomain api.airplanes.live
+          
+          # Define safe ports
+          acl SSL_ports port 443
+          acl Safe_ports port 80
+          acl Safe_ports port 443
+          
+          # Deny requests to unsafe ports
+          http_access deny !Safe_ports
+          http_access deny CONNECT !SSL_ports
+          
+          # Allow access from local networks to allowed sites only
+          http_access allow localnet allowed_sites
+          
+          # Deny all other access
+          http_access deny all
+          
+          # Squid listening port
+          http_port 3128
+          
+          # Logging
+          access_log /var/log/squid/access.log squid
+          cache_log /var/log/squid/cache.log
+          
+          # Cache settings (minimal for proxy-only use)
+          cache_dir ufs /var/spool/squid 100 16 256
+          cache_mem 64 MB
+          maximum_object_size 10 MB
+          
+          # Timeouts
+          connect_timeout 30 seconds
+          read_timeout 3 minutes
+          
+          # Hide version
+          httpd_suppress_version_string on
+          
+          # Forwarded header
+          forwarded_for off
+          EOF
+          
+          # Set permissions
+          chown squid:squid /etc/squid/squid.conf
+          
+          # Initialize cache directories
+          squid -z
+          
+          # Enable and start Squid
+          systemctl enable squid
+          systemctl start squid
+          
+      Tags:
+        - Key: Name
+          Value: squid-proxy
+
+Outputs:
+  ProxyPrivateIp:
+    Description: Private IP of the Squid proxy (use this in your client configuration)
+    Value: !GetAtt SquidProxyInstance.PrivateIp
+    Export:
+      Name: SquidProxyPrivateIp
+
+  ProxyInstanceId:
+    Description: Instance ID of the Squid proxy
+    Value: !Ref SquidProxyInstance
+
+  PublicSubnetId:
+    Description: Public Subnet ID
+    Value: !Ref PublicSubnet
+
+  ProxyUrl:
+    Description: Proxy URL to configure on your private EC2 instances
+    Value: !Sub 'http://${SquidProxyInstance.PrivateIp}:3128'
+
+  ClientConfiguration:
+    Description: Commands to run on your private EC2 instances
+    Value: !Sub |
+      export HTTP_PROXY=http://${SquidProxyInstance.PrivateIp}:3128
+      export HTTPS_PROXY=http://${SquidProxyInstance.PrivateIp}:3128
+      export NO_PROXY=localhost,127.0.0.1,169.254.169.254

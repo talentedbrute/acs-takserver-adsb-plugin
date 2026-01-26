@@ -1,0 +1,6 @@
+# Place takserver-plugins-X.X-release-XX-all.jar here
+# Download from https://tak.gov or copy from your TAK Server installation
+#
+# You can have multiple versions here and select which to build against:
+#   ./build.sh 5.4    # Build for TAK Server 5.4.x
+#   ./build.sh 5.3    # Build for TAK Server 5.3.x

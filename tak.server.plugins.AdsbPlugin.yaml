@@ -1,0 +1,28 @@
+# TAK Server ADS-B Plugin Configuration
+# Copyright (c) 2025 Adeptus Cyber Solutions, LLC
+# Licensed under the MIT License
+#
+# Deploy to: /opt/tak/conf/plugins/tak.server.plugins.AdsbPlugin.yaml
+
+# Polling interval in milliseconds
+# Minimum: 5000 (to respect airplanes.live API rate limits of 1 req/sec)
+# The API has a free tier limit of 500 requests/day
+interval: 5000
+
+# Center point for aircraft query
+# Default: Columbia, SC
+latitude: 34.0007
+longitude: -81.0348
+
+# Query radius in nautical miles (max: 250)
+radius: 75
+
+# Seconds until CoT marker becomes stale on TAK clients
+# Recommended: slightly longer than polling interval
+staleTimeSec: 30
+
+# TAK groups to publish aircraft to (optional)
+# If not specified or empty, messages go to all groups
+# groups:
+#   - "__ANON__"
+#   - "MyTeam"
