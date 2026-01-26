@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'tak.server.plugins'
-version = '1.0.1'
+version = '1.0.2'
 
 // Java 11 for compatibility with TAK Server runtime
 sourceCompatibility = '11'
