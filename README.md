@@ -237,6 +237,12 @@ export HTTPS_PROXY=http://proxy.example.com:8080
 
 The proxy configuration is logged at startup when detected.
 
+## Data Use Disclaimer
+
+This project uses data from the airplanes.live API. The airplanes.live ADS-B data is provided for non-commercial, research, and demonstration purposes only. Any commercial use of airplanes.live data requires a proper license obtained directly from airplanes.live. By using this software, you agree to comply with the airplanes.live terms of service and all applicable data use restrictions.
+
+This tool is intended for personal research, education, and demonstration use cases such as situational awareness prototyping and TAK integration development. It is not intended for operational, commercial, or safety-of-life applications.
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details.
