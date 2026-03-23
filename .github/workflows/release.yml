@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       skip_version_bump:
