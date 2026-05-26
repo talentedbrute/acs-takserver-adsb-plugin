@@ -121,6 +121,10 @@ radius: 250
 # Seconds until CoT marker becomes stale
 staleTimeSec: 30
 
+# Optional airplanes.live API key (REQUIRED for commercial/production use)
+# apiKey: "your-api-key-here"
+# apiKeyHeader: "auth"   # or "X-RapidAPI-Key" if using RapidAPI
+
 # Optional: TAK groups to publish to
 # groups:
 #   - "__ANON__"
@@ -135,6 +139,8 @@ staleTimeSec: 30
 | `longitude` | -81.0348 | Center point longitude |
 | `radius` | 250 | Query radius in nautical miles (max 250) |
 | `staleTimeSec` | 30 | Seconds until marker becomes stale |
+| `apiKey` | (none) | airplanes.live API key. Optional for personal/research use, **required for commercial use** |
+| `apiKeyHeader` | `auth` | HTTP header name used to send the API key (e.g. `X-RapidAPI-Key` for RapidAPI) |
 | `groups` | (all) | List of TAK groups to publish to |
 
 ## API Rate Limits
@@ -146,6 +152,23 @@ The airplanes.live API has the following limits:
 At the default 5-second interval, you'll use approximately 17,280 requests per day. Consider:
 - Increasing the interval for long-term monitoring
 - Using a paid API tier for production deployments
+
+## API Key (Required for Commercial / Production Use)
+
+The plugin defaults to airplanes.live's free public endpoint, which is intended for **personal, research, and non-commercial use only**. If you intend to run this plugin in a commercial, operational, or production environment, you **must** obtain an API key from airplanes.live and configure it in `tak.server.plugins.AdsbPlugin.yaml`:
+
+```yaml
+apiKey: "your-api-key-here"
+apiKeyHeader: "auth"      # or "X-RapidAPI-Key" when using RapidAPI
+```
+
+How to get a key:
+- **RapidAPI (commercial plans)** — see [airplanes.live commercial use](https://airplanes.live/commercial-use/). When using a RapidAPI key, set `apiKeyHeader: "X-RapidAPI-Key"`.
+- **Direct commercial agreement** — contact airplanes.live via the email listed on their commercial use page. Use whatever header name they specify (defaults to `auth`).
+
+When `apiKey` is set the plugin attaches it to every outbound request via the configured header. When it is blank or omitted the plugin falls back to the free public endpoint. The key value is never written to logs; only its presence and header name are logged at startup.
+
+Operating commercially against the public endpoint without a license violates the airplanes.live terms of service — see the [Data Use Disclaimer](#data-use-disclaimer) below.
 
 ## Verification
 
@@ -239,9 +262,9 @@ The proxy configuration is logged at startup when detected.
 
 ## Data Use Disclaimer
 
-This project uses data from the airplanes.live API. The airplanes.live ADS-B data is provided for non-commercial, research, and demonstration purposes only. Any commercial use of airplanes.live data requires a proper license obtained directly from airplanes.live. By using this software, you agree to comply with the airplanes.live terms of service and all applicable data use restrictions.
+This project uses data from the airplanes.live API. The airplanes.live ADS-B data is provided for non-commercial, research, and demonstration purposes only. **Any commercial or production use of airplanes.live data requires a properly licensed API key obtained directly from airplanes.live** (see [API Key](#api-key-required-for-commercial--production-use) above). By using this software, you agree to comply with the airplanes.live terms of service and all applicable data use restrictions.
 
-This tool is intended for personal research, education, and demonstration use cases such as situational awareness prototyping and TAK integration development. It is not intended for operational, commercial, or safety-of-life applications.
+This tool is intended for personal research, education, and demonstration use cases such as situational awareness prototyping and TAK integration development. It is not intended for operational, commercial, or safety-of-life applications without an appropriate commercial license from airplanes.live.
 
 ## License
 

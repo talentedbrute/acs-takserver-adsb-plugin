@@ -62,6 +62,8 @@ import atakmap.commoncommo.protobuf.v1.MessageOuterClass.Message;
  * longitude: -81.0348      # Center point longitude
  * radius: 250              # Query radius in nm (max 250)
  * staleTimeSec: 30         # Seconds until CoT marker becomes stale
+ * apiKey: ""               # Optional airplanes.live API key (required for commercial use)
+ * apiKeyHeader: "auth"     # Header name used to send the API key (override for RapidAPI etc.)
  * groups:                  # TAK groups to publish to
  *   - "__ANON__"
  */
@@ -80,6 +82,7 @@ public class AdsbPlugin extends MessageSenderBase {
     private static final int DEFAULT_RADIUS = 75;
     private static final int DEFAULT_STALE_TIME_SEC = 30;
     private static final int MAX_RADIUS = 250;
+    private static final String DEFAULT_API_KEY_HEADER = "auth";
 
     private final ScheduledExecutorService worker = Executors.newScheduledThreadPool(1);
     private ScheduledFuture<?> future;
@@ -93,6 +96,8 @@ public class AdsbPlugin extends MessageSenderBase {
     private final Set<String> groups;
     private final String pluginId;
     private final HttpHost proxy;
+    private final String apiKey;
+    private final String apiKeyHeader;
 
     private final AtomicInteger totalMessagesSent = new AtomicInteger(0);
     private final AtomicInteger totalPollCycles = new AtomicInteger(0);
@@ -134,6 +139,23 @@ public class AdsbPlugin extends MessageSenderBase {
             this.staleTimeSec = DEFAULT_STALE_TIME_SEC;
         }
 
+        // API key is optional but required for commercial use of the airplanes.live API.
+        // Normalize first so whitespace-padded or literal "null" YAML values are treated as unset.
+        if (config.containsProperty("apiKey")) {
+            String configKey = String.valueOf(config.getProperty("apiKey")).trim();
+            this.apiKey = (configKey.isEmpty() || configKey.equalsIgnoreCase("null")) ? null : configKey;
+        } else {
+            this.apiKey = null;
+        }
+
+        if (config.containsProperty("apiKeyHeader")) {
+            String configHeader = String.valueOf(config.getProperty("apiKeyHeader")).trim();
+            this.apiKeyHeader = (configHeader.isEmpty() || configHeader.equalsIgnoreCase("null"))
+                ? DEFAULT_API_KEY_HEADER : configHeader;
+        } else {
+            this.apiKeyHeader = DEFAULT_API_KEY_HEADER;
+        }
+
         if (config.containsProperty("groups")) {
             Object groupsConfig = config.getProperty("groups");
             this.groups = new HashSet<>();
@@ -156,6 +178,7 @@ public class AdsbPlugin extends MessageSenderBase {
         logger.info("  Radius: {} nm", radius);
         logger.info("  Stale time: {} sec", staleTimeSec);
         logger.info("  Groups: {}", groups.isEmpty() ? "(all)" : groups);
+        logger.info("  API key: {}", apiKey == null ? "(none — free tier)" : "configured (header: " + apiKeyHeader + ")");
         if (proxy != null) {
             logger.info("  Proxy: {}:{}", proxy.getHostName(), proxy.getPort());
         }
@@ -208,6 +231,9 @@ public class AdsbPlugin extends MessageSenderBase {
                 API_BASE, latitude, longitude, radius);
 
             HttpGet request = new HttpGet(url);
+            if (apiKey != null) {
+                request.setHeader(apiKeyHeader, apiKey);
+            }
             logger.debug("Fetching: {}", url);
 
             httpClient.execute(request, response -> {

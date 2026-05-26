@@ -21,6 +21,19 @@ radius: 75
 # Recommended: slightly longer than polling interval
 staleTimeSec: 30
 
+# airplanes.live API key (optional for personal/research use, REQUIRED for
+# commercial or production use per airplanes.live terms of service).
+# Obtain a key from https://airplanes.live/commercial-use/ (RapidAPI) or by
+# contacting airplanes.live directly for a commercial agreement.
+# Leave blank/commented out to use the free public endpoint.
+# apiKey: "your-api-key-here"
+
+# Header name used to send the API key. Defaults to "auth".
+# Common overrides:
+#   - "X-RapidAPI-Key"  (when using RapidAPI commercial plans)
+#   - "Authorization"   (if airplanes.live issues a Bearer-style key)
+# apiKeyHeader: "auth"
+
 # TAK groups to publish aircraft to (optional)
 # If not specified or empty, messages go to all groups
 # groups:
